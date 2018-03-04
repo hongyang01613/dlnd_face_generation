@@ -12,7 +12,7 @@
 # 
 # 如果你在使用 [FloydHub](https://www.floydhub.com/), 请将 `data_dir` 设置为 "/input" 并使用 [FloydHub data ID](http://docs.floydhub.com/home/using_datasets/) "R5KrjnANiKVhLWAkpXhNBe".
 
-# In[1]:
+# In[21]:
 
 
 data_dir = './data'
@@ -34,7 +34,7 @@ helper.download_extract('celeba', data_dir)
 # ### MNIST
 # [MNIST](http://yann.lecun.com/exdb/mnist/) 是一个手写数字的图像数据集。你可以更改 `show_n_images` 探索此数据集。
 
-# In[2]:
+# In[22]:
 
 
 show_n_images = 25
@@ -54,7 +54,7 @@ pyplot.imshow(helper.images_square_grid(mnist_images, 'L'), cmap='gray')
 # ### CelebA
 # [CelebFaces Attributes Dataset (CelebA)](http://mmlab.ie.cuhk.edu.hk/projects/CelebA.html) 是一个包含 20 多万张名人图片及相关图片说明的数据集。你将用此数据集生成人脸，不会用不到相关说明。你可以更改 `show_n_images` 探索此数据集。
 
-# In[3]:
+# In[23]:
 
 
 show_n_images = 25
@@ -85,7 +85,7 @@ pyplot.imshow(helper.images_square_grid(mnist_images, 'RGB'))
 # ### 检查 TensorFlow 版本并获取 GPU 型号
 # 检查你是否使用正确的 TensorFlow 版本，并获取 GPU 型号
 
-# In[4]:
+# In[24]:
 
 
 """
@@ -115,7 +115,7 @@ else:
 # 返回占位符元组的形状为 (tensor of real input images, tensor of z data, learning rate)。
 # 
 
-# In[5]:
+# In[25]:
 
 
 import problem_unittests as tests
@@ -132,7 +132,7 @@ def model_inputs(image_width, image_height, image_channels, z_dim):
     # TODO: Implement Function
     input_real = tf.placeholder(tf.float32, [None, image_width, image_height, image_channels], name='input_real')
     
-    input_z = tf.placeholder(tf.float32, [None, z_dim], name='input_z')
+    input_z = tf.placeholder(tf.float32, [None, z_dim], name='z_dim')
     
     learning_rate = tf.placeholder(tf.float32, name='learning_rate')
 
@@ -150,7 +150,7 @@ tests.test_model_inputs(model_inputs)
 # 
 # 该函数应返回形如 (tensor output of the discriminator, tensor logits of the discriminator) 的元组。
 
-# In[6]:
+# In[26]:
 
 
 def discriminator(images, reuse=False):
@@ -199,7 +199,7 @@ tests.test_discriminator(discriminator, tf)
 # 
 # 该函数应返回所生成的 28 x 28 x `out_channel_dim` 维度图像。
 
-# In[7]:
+# In[39]:
 
 
 def generator(z, out_channel_dim, is_train=True):
@@ -211,12 +211,29 @@ def generator(z, out_channel_dim, is_train=True):
     :return: The tensor output of the generator
     """
     # TODO: Implement Function
-    if is_train:
-        reuse = False
-    else:
-        reuse = True
 
-    with tf.variable_scope('generator', reuse=reuse):
+    alpha = 0.2
+    with tf.variable_scope("generator", reuse=not is_train):
+        x = tf.layers.dense(z, 7*7*512)
+        x = tf.reshape(x, (-1, 7, 7, 512))
+        x = tf.layers.batch_normalization(x, training=is_train)
+        x = tf.maximum(alpha * x, x)
+
+        conv1 = tf.layers.conv2d_transpose(x, 256, 5, strides=1, padding="same")
+        conv1 = tf.layers.batch_normalization(conv1, training=is_train)
+        conv1 = tf.maximum(alpha * conv1, conv1)
+
+        conv2 = tf.layers.conv2d_transpose(conv1, 128, 5, strides=2, padding="same")
+        conv2 = tf.layers.batch_normalization(conv2, training=is_train)
+        conv2 = tf.maximum(alpha * conv2, conv2)
+
+        logits = tf.layers.conv2d_transpose(conv2, out_channel_dim, 5, strides=2, padding="same")
+    return tf.tanh(logits)    
+  
+
+
+'''    
+    with tf.variable_scope('generator', reuse=not is_train):
         x1 = tf.layers.dense(z, 4*4*512)
         
         x1 = tf.reshape(x1,(-1, 4, 4, 512))
@@ -241,7 +258,7 @@ def generator(z, out_channel_dim, is_train=True):
         out = 0.5*tf.tanh(logits)
 
         return out
-
+'''
 
 """
 DON'T MODIFY ANYTHING IN THIS CELL THAT IS BELOW THIS LINE
@@ -256,7 +273,7 @@ tests.test_generator(generator, tf)
 # - `discriminator(images, reuse=False)`
 # - `generator(z, out_channel_dim, is_train=True)`
 
-# In[8]:
+# In[28]:
 
 
 def model_loss(input_real, input_z, out_channel_dim):
@@ -293,7 +310,7 @@ tests.test_model_loss(model_loss)
 # ### 优化（Optimization）
 # 部署 `model_opt` 函数实现对 GANs 的优化。使用 [`tf.trainable_variables`](https://www.tensorflow.org/api_docs/python/tf/trainable_variables) 获取可训练的所有变量。通过变量空间名 `discriminator` 和 `generator` 来过滤变量。该函数应返回形如 (discriminator training operation, generator training operation) 的元组。
 
-# In[9]:
+# In[29]:
 
 
 def model_opt(d_loss, g_loss, learning_rate, beta1):
@@ -330,7 +347,7 @@ tests.test_model_opt(model_opt, tf)
 # ### 输出显示
 # 使用该函数可以显示生成器 (Generator) 在训练过程中的当前输出，这会帮你评估 GANs 模型的训练程度。
 
-# In[10]:
+# In[30]:
 
 
 """
@@ -370,7 +387,7 @@ def show_generator_output(sess, n_images, input_z, out_channel_dim, image_mode):
 # 
 # **注意**：在每个批次 (batch) 中运行 `show_generator_output` 函数会显著增加训练时间与该 notebook 的体积。推荐每 100 批次输出一次 `generator` 的输出。 
 
-# In[11]:
+# In[31]:
 
 
 from os.path import isdir
@@ -378,7 +395,7 @@ if not isdir('checkpoints'):
     get_ipython().system('mkdir checkpoints')
 
 
-# In[12]:
+# In[40]:
 
 
 def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, data_shape, data_image_mode):
@@ -455,7 +472,7 @@ def train(epoch_count, batch_size, z_dim, learning_rate, beta1, get_batches, dat
 # ### MNIST
 # 在 MNIST 上测试你的 GANs 模型。经过 2 次迭代，GANs 应该能够生成类似手写数字的图像。确保生成器 (generator) 低于辨别器 (discriminator) 的损失，或接近 0。
 
-# In[13]:
+# In[41]:
 
 
 batch_size = 32
@@ -477,7 +494,7 @@ with tf.Graph().as_default():
 # ### CelebA
 # 在 CelebA 上运行你的 GANs 模型。在一般的GPU上运行每次迭代大约需要 20 分钟。你可以运行整个迭代，或者当 GANs 开始产生真实人脸图像时停止它。
 
-# In[14]:
+# In[42]:
 
 
 batch_size = 16
